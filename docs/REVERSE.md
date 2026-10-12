@@ -46,6 +46,7 @@ Method, the functions that matter, and what is still open.
 | Address | Role |
 | --- | --- |
 | `0x00444ce0` | `.sss` decryptor. Holds the 128-byte keystream as immediate operands; writes the decrypted EZFF payload to `tmp.tmp`. |
+| `0x004043b0` | sample loader / `.wav` de-obfuscator. Second 128-byte keystream, applied to only the first `0x100` bytes; hands the buffer to `mmioOpenA` as `'MEM '`, falling back to PE resources of type `WAVE`/`WAV`. |
 | `0x004468b0` | EZFF payload loader (parses `tmp.tmp`). |
 | `0x00446c60` | converts 11-byte v6 note records into the internal 0x24-byte note struct. |
 | `0x004457a0` | filename construction + load orchestration. Source of the difficulty and chart-type tables and the `.3s`/`.sss`/`.ez`/`.ezi` fallback order. |
@@ -119,10 +120,6 @@ keyed within the record set.
 
 ## Not solved
 
-* **`.wav` sample obfuscation.** Samples use a *different* keystream from
-  `.sss`; decrypted attempts show a `WTH]` magic rather than `RIFF`. The key is
-  presumably elsewhere in the exe (a second decryptor routine), and recovering it
-  is the single most useful next step for anyone wanting the audio.
 * **`.3s` container.** The loader tries `.3s` before `.sss`, but no `.3s` file
   exists in the 20907-path listing. Either a newer format that never shipped, or
   one produced by an authoring tool.
@@ -131,11 +128,38 @@ keyed within the record set.
 * **Note payload byte 3** (`unk`) — always 0 in this sample set; unknown whether
   it is used by other charts.
 
+## Solved since the first pass
+
+* **`.wav` sample obfuscation** — see `docs/WAV.md`. Found by noticing that
+  bytes 8–15 were *identical across all 577 sample files*: a keystream over a
+  constant WAV header. The `WTH]` "magic" is just `RIFF` plus four keystream
+  bytes, and the tail of every file was already recognisable 16-bit PCM, which
+  together pinned down both the construction and its 256-byte extent.
+
+  The keystream is a second array, not the chart key: 121/128 bytes match the
+  chart key rotated left by 96, seven differ. Those seven are what make the
+  rotated key a trap — it decrypts the header correctly and corrupts the audio
+  instead. They were confirmed from the PCM itself (clicks appear at exactly the
+  predicted sample positions), so the key does not rest on the disassembly
+  alone.
+
 ## Reproducing the analysis
 
 ```sh
 # 1. format model regression test — must report all identical
 python3 tools/sss.py roundtrip '/path/to/game/data/*/*.sss'
+
+# 1b. sample regression test — must report all identical
+python3 tools/wav.py roundtrip '/path/to/game/data/*/*.wav'
+
+# 1c. re-extract the sample keystream straight from the disassembly
+#     (it is 128 immediate stores, so a byte-pattern search finds nothing)
+objdump -dM intel --start-address=0x4043b0 --stop-address=0x404c00 3s.exe \
+  | grep -oE 'mov +DWORD PTR \[ebp-0x[0-9a-f]+\],0x[0-9a-f]+' \
+  | sed -E 's/.*\[ebp-(0x[0-9a-f]+)\],0x([0-9a-f]+)/\1 \2/'
+#     index n lives at [ebp - 0x268 + 4n]; take each immediate mod 256.
+#     Ghidra's decompiler mis-renders several of them (0x19b, 0x17, 0x60,
+#     0xc5, 0xc) because it types the array as undefined4[129].
 
 # 2. eyeball one chart
 python3 tools/sss.py decode /path/to/game/data/kamui/kamui_1n.sss | head -60

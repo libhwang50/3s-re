@@ -24,7 +24,7 @@ rather than proven are flagged inline.
 | Track-slot usage per chart type | characterised empirically |
 | Difficulty / chart-type naming | solved from the exe's own tables |
 | `.rnk` high-score files | partially characterised |
-| `.wav` sample obfuscation | **not solved** (different keystream) |
+| `.wav` sample obfuscation | solved, key recovered; 577/577 samples round-trip |
 | `.3s` container | **not found on disk** (referenced by the loader) |
 
 ## Layout
@@ -33,8 +33,10 @@ rather than proven are flagged inline.
 FORMAT.md            the .sss container + EZFF payload spec
 docs/TAXONOMY.md     filename grammar, difficulty ladder, chart types
 docs/LANES.md        what the 64 track slots mean per chart type
+docs/WAV.md         the partial keystream over sample files
 docs/REVERSE.md      how this was recovered: functions, addresses, method
-tools/sss.py         decoder / encoder / round-trip verifier (stdlib only)
+tools/sss.py         chart decoder / encoder / round-trip verifier (stdlib only)
+tools/wav.py         sample de-obfuscator (stdlib only)
 ```
 
 ## Using the tool
@@ -60,6 +62,20 @@ python3 tools/sss.py roundtrip 'path/to/*.sss'
 `parse -> build` and `parse -> JSON -> build` — and each must reproduce the
 input byte-for-byte. It currently reports all 36 sample charts identical.
 Run it after any change to the codec.
+
+### Samples
+
+The `.wav` files a chart references are only *partially* obfuscated — the first
+256 bytes only. `tools/wav.py` undoes that:
+
+```sh
+python3 tools/wav.py info    'path/to/sound/*.wav'   # decoded WAV headers
+python3 tools/wav.py decode  path/to/1-kick-02.wav -o kick.wav
+python3 tools/wav.py roundtrip 'path/to/sound/*.wav'
+```
+
+Decoded output is ordinary PCM that `wave`/`ffmpeg` accept. See `docs/WAV.md`
+for why the chart keystream must *not* be reused here.
 
 ## Not included
 

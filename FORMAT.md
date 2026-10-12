@@ -41,8 +41,10 @@ The key lives as immediate operands in the decryptor at `0x00444ce0` in
 41 01 02 1f 56 0e 03 a6 23 10 3a 06 04 07 02 04
 ```
 
-This is obfuscation, not encryption. `.wav` samples use a *different* keystream
-(magic `WTH]` after decryption attempts) which is not yet recovered.
+This is obfuscation, not encryption. Sample (`.wav`) files use a *separate*
+128-byte keystream, applied to only their first 256 bytes; it is recovered in
+`docs/WAV.md`. The two keys are related — the sample key equals the chart key
+rotated left by 96 in 121 of 128 positions — but they are not interchangeable.
 
 ---
 
