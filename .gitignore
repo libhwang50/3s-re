@@ -1,0 +1,26 @@
+# Never commit game content: 3S is abandonware but still copyrighted.
+data/
+game/
+Sabin Sound Star*/
+*.7z
+*.zip
+*.exe
+*.dll
+*.sss
+*.ez
+*.ezi
+*.3s
+*.rnk
+*.wav
+*.bik
+
+# decrypted / generated output
+plain/
+out/
+*.json
+!package.json
+
+# python
+__pycache__/
+*.pyc
+.venv/
