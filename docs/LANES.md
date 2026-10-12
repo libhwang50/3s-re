@@ -1,121 +1,144 @@
 # Track slots: what the 64 lanes mean
 
-Every chart declares exactly 64 track slots (the `num_tracks` field is always
-64), each with an `"EZTR"` header. Slot **index** is the only thing that carries
-meaning — track names are empty in all shipped charts.
+Every chart declares exactly 64 track slots (`num_tracks` is always 64), each
+with an `"EZTR"` header. Slot index is what carries meaning — but the slots are
+**also named in the file**, and those names are authoritative for what the
+authoring tool thought each slot was.
 
-## Summary of slot ranges
+## Slot names, read straight out of the track headers
 
-| Slots | Role | Evidence |
-| --- | --- | --- |
-| 0 | control: BPM (type 3) and beats-per-measure (type 4) events | all 1586 type-3 and all 36 type-4 events in the sample set live here |
-| 1, 2, 21 | unused | empty in all 36 charts |
-| 3–21 | gameplay lanes | the notes the player actually hits |
-| 22–40 | audio / keysound tracks | populated in every chart; 22–31 always, 32–39 often, 40 rarely |
-| 41–63 | unused | empty in all 36 charts |
+Identical across all 36 sample charts:
 
-## Gameplay lanes, per chart type
+| Slots | Name | Notes (all charts) |
+| ---: | --- | ---: |
+| 0 | `untitled` | 0 (carries only control events) |
+| 1, 2 | `Dummy`, `Dummy2` | 0 |
+| 3–9 | `(1P)Line 1` … `(1P)Line 7` | 3840, 3144, 3743, 3213, 3059, 4672, 1644 |
+| 10 | `(1P)Scratch` | 1867 |
+| 11 | `(1P)Pedal` | 1793 |
+| 12–18 | `(2P)Line 1` … `(2P)Line 7` | 821, 692, 687, 713, 450, 1898, 1659 |
+| 19 | `(2P)Scratch` | 1571 |
+| 20 | `(2P)Pedal` | **0 — never used in any shipped chart** |
+| 21 | `Lights` | 0 |
+| 22–31 | `BG 1` … `BG 10` | 2076 … 2595 |
+| 32–40 | *(unnamed)* | 1786 … 1585 |
+| 41–63 | *(unnamed)* | 0 |
 
-Observed lane sets across all 36 sample charts (four songs). This is empirical:
-it is what the shipped charts actually use, not what the code claims.
+So the authoring layout is **9 slots per player** (7 lines + scratch + pedal),
+then a `Lights` slot, then 19 backing slots. Slots 32–40 are unnamed but carry
+plenty of notes, so they are effectively `BG 11`–`BG 19`.
 
-**Type `1`** (16 charts) — a stable core of 7 lanes:
+**These names are stale EZ2DJ/EZ2AC labels, not 3S's controls.** 3S has three
+percussion buttons per side (six total, capacitive); nothing in the naming
+reflects that, and in EZ2AC v6 the slots `1P Line 6`, `1P Line 7`, `2P Line 1`,
+`2P Line 2` were the effector buttons. Treat the names as telling you which
+*authored lane* a slot is, never which *button* it is.
 
+## Which slots each chart type uses
+
+Charts containing notes on that slot, across all 36 sample charts:
+
+| slot | type 1 (Arcade) | type 2 (Professional) | type 3 (Percussion) |
+| ---: | ---: | ---: | ---: |
+| 3–7 | 16 | 9 | 1–2 |
+| 8 | 16 | 7 | 11 |
+| 9 | 1 | 2 | 11 |
+| 10 | — | — | 11 |
+| 11 | 16 | 9 | 1 |
+| 12–16 | 1 (slot 14 only) | 8 | — |
+| 17, 18 | — | — | 11 |
+| 19 | — | 8 | 11 |
+| 22–31 | 16 | 9 | 11 |
+| 32–40 | 3–11 | 2–6 | 2–6 |
+
+Percussion mode is a clean `8,9,10` + `17,18,19`: three lanes per side, six
+total — which is exactly 3S's three percussion buttons per side. That those
+slots are named `Line 6`, `Line 7`, `Scratch` is the stale-naming point above.
+
+## The lane map is in the binary after all
+
+An earlier pass here recorded `FUN_00406c30` as a dead end because it builds
+keyboard scancode tables. That was **wrong, and half wrong at that**: the same
+function also writes `DAT_00921150`, the display-lane → chart-slot map the note
+processor uses, from 18-entry per-mode stack tables. It really is the lane map;
+the scancodes are just also in there.
+
+```c
+for (i = 0; i < 0x12; i++)
+    DAT_00921150[i] = table[mode * 0x12 + i];
+DAT_009210a8 = DAT_004c34f0[mode];
 ```
-3 4 5 6 7   8   11
-^^^^^^^     ^   ^^
-5 keys      |   one extra lane
-            one extra lane
-```
 
-Slot 9 appears in 1 chart, slot 14 in 1 chart. Everything else is exactly
-`3,4,5,6,7,8,11`.
+`DAT_004c34f0 = {6, 7, 13}` — lane counts that identify the row index as the
+chart type, in the same internal enum order as the chart-type character table:
 
-**Type `2`** (9 charts) — the type-1 set plus a second block of five keys:
+| row | chart type | lanes |
+| ---: | --- | ---: |
+| 0 | Percussion | 6 = 3 + 3 |
+| 1 | Arcade | 7 = 5 keys + percussion + pedal |
+| 2 | Professional | 13 = P1 7 + P2 6 |
 
-```
-P1: 3 4 5 6 7   8  (9)   11
-P2: 12 13 14 15 16   (17 18) 19
-```
+Four variant tables exist, selected by an outer branch. Extracted from the
+disassembly (`mov dword ptr [ebp-0x…], imm` runs inside `FUN_00406c30`; the
+lane-map entries are the stores whose values fall in 3..19):
 
-Slots 12–16 appear in 8 of 9 charts, 19 in 8, 9 in 2, and 10/17/18 in none.
-The key lanes show a clean **+9 offset** between the two blocks
-(`3..7` → `12..16`), which strongly suggests a two-player or two-hand layout.
-
-**Type `3`** (11 charts) — two groups of three:
-
-```
-8 9 10   17 18 19
-```
-
-All six appear in all 11 charts. Slot 11 appears in 1 chart. Some type-3 charts
-*also* carry key lanes: `firestorm_3n` uses
-`3,4,5,6,7,8,9,10,17,18,19` and `firestorm_3h` adds slot 3.
-
-## What the lanes play
-
-Lane notes are not fixed-keysound triggers. The `sound` byte selects any sample
-from the text-header table, and in practice the melody is distributed across the
-playable lanes. In `kamui_1n.sss`:
-
-| slot | notes | sample families used |
-| --- | --- | --- |
-| 3 | 188 | `drumloop_*`, plus `lead_*`, `s_*` |
-| 4 | 174 | `drumloop_*`, `piano*`, `lead_*` |
-| 5 | 130 | `drumloop_*`, `piano*`, `lead_*` |
-| 6 | 154 | `drumloop_*`, `piano*`, `lead_*` |
-| 7 | 147 | `drumloop_*`, `piano*`, `lead_*` |
-| 8 | 299 | `voia_*`, `voib_*` (vocal chops) |
-| 11 | 69 | `scrc_x12.wav`, `kickdeep.wav`, `deep0*.wav`, `effect_0*.wav` |
-| 22–31 | 914–2965 | backing / BGM material |
-
-So slots 3–7 carry pitched melodic material, slot 8 is heavily weighted to
-vocal samples, and slot 11 is the only lane using scratch (`scrc_`), kick and
-effect samples. Slots 22–40 hold the rest of the audio bed. This is the EZ2AC
-design: the music is synthesised from the note stream, so "playable lane" and
-"audio track" are the same mechanism, distinguished only by slot index.
-
-## Mapping to physical controls — inferred, not proven
-
-The community wiki describes 3S's modes as:
-
-* **Arcade** — 5 keys + percussion + pedal
-* **Professional** — 10 keys + 3 percussion + pedal
-* **Percussion** — 3 percussion lanes
-* **Enhanced Arcade** (Renascence Burst) — 3 percussion + 5 keys + 1 pedal = 9
-  lanes, where the three percussion notes are separate lanes rather than one
-
-Those lane counts line up with the three shipped chart types, so the working
-interpretation is:
-
-| filename char | internal index | mode | lanes |
+| table | row 0 (Percussion) | row 1 (Arcade) | row 2 (Professional) |
 | --- | --- | --- | --- |
-| `1` | 1 | Arcade | 5 keys + 1 + 1 |
-| `2` | 2 | Professional | 10 keys + 3 + 1 |
-| `3` | 0 | Percussion | 3 + 3 |
-| `4` | 3 | unshipped | — |
+| A | `8 9 10 17 18 19` | `3 4 5 6 7 11 8 9 10` | `3 4 5 6 7 11 8 12 13 14 15 16 19` |
+| B | `9 10 17 18` | `3 4 5 6 7 8 9 10` | `3 4 5 6 7 8 12 13 14 15 16 19` |
+| C | `8 9 18 19` | `3 4 5 6 7 11` | `3 4 5 6 7 11 12 13 14 15 16` |
+| D | `8 9 10 17 18 19` | `3 4 5 6 7` | `3 4 5 6 7 12 13 14 15 16` |
 
-**Treat this as a hypothesis.** The specific assignment of slots 8/9/10/11 to
-percussion vs pedal vs scratch is *not* confirmed. Two observations cut against
-a naive reading:
+Reading across the rows, the tables differ by whether the **pedal** (slot 11)
+and the **percussion** (slots 8, 9, 10) are included in the lane set:
 
-* Type-2 charts use slots 8, 9 and 19 but never 10, 17 or 18 — so the "3
-  percussion lanes" do not appear as a clean `8,9,10` group in type 2.
-* Type-3 charts use `8,9,10` and `17,18,19`, i.e. two groups of three, which
-  looks like two players' percussion rather than one player's.
+* A — pedal yes, percussion yes (three separate lanes)
+* B — pedal no, percussion yes
+* C — pedal yes, percussion no
+* D — pedal no, percussion no
 
-## Why the exact map was not extracted statically
+Table A row 1 is `3 4 5 6 7 11 8 9 10`: five keys, one pedal, and three
+*separate* percussion lanes — nine lanes, which is precisely the wiki's
+description of Renascence Burst's **Enhanced Arcade** mode (3 percussion + 5
+keys + 1 pedal, percussion split rather than combined). Table C row 1 is five
+keys plus pedal, matching plain Arcade once you allow that its combined
+percussion lane is slot 8.
 
-The obvious candidate, `FUN_00406c30` (called right after the chart is loaded,
-and branching on `DAT_0091cf30`, the chart-type index), turned out to build
-**keyboard scancode binding tables**, not lane→track maps. Its stack tables
-contain values like `0x58,0x44,0x43,0x46,0x56,0x41` (`X D C F V A`) and
-`0x57,0x45,0x4f,0x50` — default key assignments per mode, plus save/restore of
-per-player binding arrays at `DAT_0091ce1c` / `DAT_0091ce6c` (4 players × 5
-slots).
+**What is not settled:** which outer branch picks A/B/C/D. The pedal ×
+percussion pattern fits all three rows of tables A–D, but the Percussion rows of
+B and C drop to four lanes, which that theory does not explain. Pinning it down
+means tracing the outer branch conditions, or running the game.
 
-The lane map itself is applied inside the note processor `FUN_0040ad70`, which
-iterates the track array (42 tracks × up to 1024 notes) and reads
-`DAT_0091cf30` in ~20 places to select behaviour. Recovering the precise
-slot→button mapping would require either tracing that function's per-mode
-branches in detail or running the game and observing input handling.
+## What the slots play
+
+Lane notes are not fixed-keysound triggers: the `sound` byte selects any sample
+from the chart's own instrument table, and the melody is distributed across the
+playable slots. In `kamui_1n.sss`, slots 3–7 carry pitched `piano*`/`lead_*`/
+`drumloop_*` material, slot 8 is weighted to vocal chops (`voia_*`, `voib_*`),
+and slot 11 (`(1P)Pedal`) is the only lane using scratch (`scrc_x12.wav`), kick
+and effect samples. Slots 22–40 hold the rest of the audio.
+
+Lane notes and backing notes do not overlap: the `(tick, sample)` pairs shared
+between slots 3–21 and slots 22–40 number 0 or 1 per chart. Summing every slot
+therefore reconstructs the song without doubling the melody.
+
+## Long samples are beds, not bounces
+
+Some slots trigger samples that run most of the song:
+
+| chart | slot | tick | sample | length |
+| --- | ---: | ---: | --- | ---: |
+| firestorm_* | 22 | 192 | `2-firestorm-mr.wav` | 118.6 s |
+| bleed_* | 22 | 192 | `255.wav` | 100.8 s |
+| Eraser_* | 22 | 192 | `0-MR.wav` | 109.7 s |
+| kamui_* | 39 | 2304 | `m_bass.wav` | 109.7 s |
+| kamui_* | 38 | 10752 | `strings_s.wav` | 57.0 s |
+
+Each is triggered by a **single** note. They are not full-song bounces: their
+energy is concentrated in the lowest frequency band (roughly 10× the mean,
+against a fairly flat mix), i.e. a low-frequency bed/ambience layer. This is the
+same role the `MR` keysound plays in EZ2ON.
+
+They also settle the `length` question — see `FORMAT.md`: Firestorm's 118.6 s
+bed is triggered by a note whose `length` is 6 ticks, which would cut it to
+35 ms if `length` gated playback. It does not.

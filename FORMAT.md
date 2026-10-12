@@ -167,12 +167,87 @@ Types seen:
 
 | Type | Name | Payload layout | Notes |
 | --- | --- | --- | --- |
-| `1` | note | `sound:u8, velocity:u8, pan:u8, unk:u8, length:u16` | `sound` indexes the text-header sample table; `length` is in ticks and is non-zero for long/hold notes |
+| `1` | note | `sound:u8, velocity:u8, pan:u8, zero:u8, length:u16` | `sound` indexes the text-header sample table |
 | `2` | volume | `volume:u8`, then 5 further bytes | the 5 trailing bytes are **not** always zero — see below |
 | `3` | bpm | `bpm:f32`, then `u16` | |
 | `4` | beats | `beats:u8`, then 5 zero bytes | time-signature numerator |
 
-`unk` (note payload byte 3) was `0` in every note of all 36 charts.
+`FUN_00446c60` converts each 11-byte record into the internal 0x24-byte note
+struct, which fixes the field mapping:
+
+```c
+case 1:  /* note */
+    dst[1] = 1;                        /* internal type */
+    dst[0xd] = rec[5];                 /* sound   */
+    dst[0xe] = rec[6];                 /* velocity */
+    dst[0xf] = rec[7];                 /* pan      */
+    *(u16*)&dst[0x10] = rec[8];        /* always 0 in every shipped chart */
+    *(u16*)&dst[0x12] = rec[9] | rec[10]<<8;   /* "length", ticks */
+    break;
+case 2:  /* volume */
+    dst[1] = 4;
+    dst[0xd] = rec[5];                 /* volume lands in the same field as sound */
+    break;
+case 3:  dst[1] = 5; *(u32*)&dst[3] = rec[5..8];  break;   /* bpm  */
+case 4:  dst[1] = 6; dst[0xd] = rec[5];           break;   /* beats */
+```
+
+Note payload byte 3 was `0` in all 99,254 notes of the 36 sample charts.
+
+### `length` is not a playback gate
+
+`length` is a tick value — 6 for 96% of notes, always a multiple of 6, and it
+never overruns the next note on the same slot (98,129 shorter, 333 exactly
+equal, 3 longer). That looks like a sustain, but it cannot gate audio:
+Firestorm's 118.6 s ambience bed is triggered by a single note whose `length`
+is 6, which would cut it to 35 ms. So keysounds play once through, and
+`length` must feed judgement or visuals instead. See `docs/LANES.md`.
+
+### Velocity and pan are dB, not linear
+
+This is the part that most affects an audio render. `FUN_00417320` is the
+keysound play path, and it hands both values to DirectSound, which takes them
+in 1/100 dB:
+
+```c
+FUN_00417320(sample, 0, velocity * lanevol[lane] / 0x7f, pan, 1)
+  iVar3 = -(10000 - (param_3 * 10000) / 0x7f);   /* 1/100 dB */
+  if (iVar3 < 0) iVar3 = iVar3 / 2;              /* -> 0 .. -50 dB */
+  iVar1 = (param_4 - 0x40) * 0x9c;               /* (pan-64)*156, 1/100 dB */
+  SetVolume(iVar3);   /* vtable +0x3c */
+  SetPan(iVar1);      /* vtable +0x40 */
+```
+
+So velocity is an attenuation in dB, not an amplitude gain:
+
+| velocity | game gain | naive `v/127` | error |
+| ---: | ---: | ---: | ---: |
+| 127 | 1.000 | 1.000 | 0 dB |
+| 120 | 0.728 | 0.945 | −2.3 dB |
+| 117 | 0.635 | 0.921 | −3.2 dB |
+| 115 | 0.581 | 0.906 | −3.9 dB |
+| 111 | 0.484 | 0.874 | −5.1 dB |
+| 90 | 0.187 | 0.709 | −11.6 dB |
+| 70 | 0.075 | 0.551 | −17.3 dB |
+
+Only 76% of notes are 127, so this dominates the mix balance. Pan is a
+DirectSound balance in 1/100 dB: `(pan - 64) * 156`, positive attenuating the
+left channel. 64 is centre; pan 96 is +49.9 dB of left attenuation, i.e.
+effectively hard right. Observed pan values are 64 (95%), then 0, 127, 96, 32,
+10, 117 — consistent with hard-panned layers.
+
+### There is no per-instrument volume table
+
+`lanevol` above is `DAT_00bdd9e4`, a 42-entry per-lane volume array indexed
+through the per-track lane map `DAT_00921150`. It looks like the per-instrument
+volume control one would hope for, but `FUN_00406c30` initialises all 42
+entries to `0x7f` and no shipped code writes it again, so it is a constant 127.
+
+The text instrument table's `flag` column is dead code too: `FUN_00445b70`
+parses it with `fscanf(f, "%s %d", name, &flag)` and then evaluates
+`flag != 1 && flag == 2` into a local that is never read. Exactly one entry per
+chart has `flag = 1` — always the `C#0` / index-1 entry, which in the newer
+songs is the `MR` bed sample (`2-<song>-mr.wav`).
 
 **Preserve the raw 6 payload bytes.** For type `2` the bytes after `volume` are
 meaningful: `kamui_3n.sss` has a volume event whose payload is

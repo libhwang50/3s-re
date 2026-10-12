@@ -52,7 +52,11 @@ Method, the functions that matter, and what is still open.
 | `0x004457a0` | filename construction + load orchestration. Source of the difficulty and chart-type tables and the `.3s`/`.sss`/`.ez`/`.ezi` fallback order. |
 | `0x004456c0` | parses a note name (`C#3`) into a sample-table index. |
 | `0x0040ad70` | main note processor: iterates 42 tracks × up to 1024 notes, branches on chart type in ~20 places. Where the lane map is actually applied. |
-| `0x00406c30` | per-mode **keyboard binding** tables and per-player binding save/restore. *Not* a lane map — a dead end worth recording so nobody re-traces it. |
+| `0x00406c30` | per-mode setup: **both** the keyboard scancode binding tables *and* the lane map. Writes `DAT_00921150` (display lane → chart slot, 18-entry rows) from four variant stack tables, and initialises `DAT_00bdd9e4` (per-lane volume) to 127. An earlier pass recorded this as a dead end because only the scancodes were noticed; it is the lane map. |
+| `0x00417320` | keysound play path. Converts velocity and pan to DirectSound 1/100 dB values and calls `SetVolume` / `SetPan`. The whole volume model lives here. |
+| `0x00403840`, `0x004037a0`, `0x00403cb0` | `IDirectSoundBuffer` wrappers: vtable `+0x3c` `SetVolume`, `+0x40` `SetPan`, `+0x34` `SetCurrentPosition`, `+0x30` `Play`. |
+| `0x00402be0` | builds a `CSound`: loads the sample, creates a pool of duplicated secondary buffers so overlapping hits do not clobber each other's volume. |
+| `0x00445b70` | text instrument-table parser: `fscanf(f, "%s %d", name, &flag)`, note name via `FUN_004456c0`, filename registered at both `idx` and `idx + 0x400`. The `flag` value is parsed into a local that is never read. |
 | `0x00411ff0` | song database: enumerates songs with per-mode difficulty ratings. |
 | `0x00449c80`, `0x00449bf0` | `.rnk` high-score read/write. |
 
@@ -60,6 +64,9 @@ Method, the functions that matter, and what is still open.
 
 | Address | Meaning |
 | --- | --- |
+| `0x00921150` | display lane → chart slot map, 18 entries, written by `FUN_00406c30` |
+| `0x00bdd9e4` | 42-entry per-lane volume array; initialised to `0x7f` and never written again, so effectively a constant 127 |
+| `0x004c34f0` | `{6, 7, 13}` — lane counts per chart type, which identifies the lane-map row index as Percussion / Arcade / Professional |
 | `0x004f8098` | `PTR_DAT` → `{"e","n","h","s"}` difficulty labels, at `0x004cd298` |
 | `0x004f80c0` | `PTR_DAT` → `{"3","1","2","4"}` chart-type characters, at `0x004cd2a8` |
 | `0x00921068` | current difficulty index (0..3), written only by menu code |
@@ -123,12 +130,36 @@ keyed within the record set.
 * **`.3s` container.** The loader tries `.3s` before `.sss`, but no `.3s` file
   exists in the 20907-path listing. Either a newer format that never shipped, or
   one produced by an authoring tool.
-* **Exact slot→button map.** See `LANES.md`.
-* **The text-header `flag` column** (0 or 1).
-* **Note payload byte 3** (`unk`) — always 0 in this sample set; unknown whether
-  it is used by other charts.
+* **Which lane-map variant table applies when.** The four tables in
+  `FUN_00406c30` differ by whether the pedal and the three percussion slots are
+  included, and one row matches the wiki's Enhanced Arcade lane set exactly —
+  but the outer branch that selects among them is not traced. See `LANES.md`.
+* **What `length` actually drives.** It is a tick value that never overlaps the
+  next note on the same slot, but it demonstrably does not gate playback.
+  Judgement or visuals, most likely.
+* **Note payload byte 3** — always 0 in this sample set; it becomes a u16 at
+  internal struct offset `0x10`. Whether other charts use it is unknown.
+* **The text-header `flag` column** — parsed and then ignored (dead code), but
+  *why* one entry per chart is flagged, and what it was meant to do, is not
+  established. It is always the index-1 / `C#0` entry, which in the newer songs
+  is the `MR` bed sample.
 
 ## Solved since the first pass
+
+* **Volume and pan are dB, not linear.** `FUN_00417320` maps velocity to a
+  DirectSound attenuation of `-50 * (127 - v) / 127` dB and pan to a balance of
+  `(pan - 64) * 156` 1/100 dB. Reading velocity as `v/127` amplitude puts the
+  24% of notes below 127 between 2 and 17 dB too loud. There is no
+  per-instrument volume: `DAT_00bdd9e4` is a 42-entry per-lane array that the
+  game sets to 127 and never touches again, and the instrument table's `flag`
+  column is parsed into a dead local.
+* **Slot identity.** The track name fields are populated in every shipped chart
+  (`(1P)Line 1..7`, `(1P)Scratch`, `(1P)Pedal`, `(2P)…`, `Lights`, `BG 1..10`),
+  which corrects the earlier guess that slot 8 was "combined percussion" and
+  slot 11 "scratch". They are stale EZ2DJ authoring labels, not 3S's controls.
+* **The lane map.** `FUN_00406c30` writes `DAT_00921150` from 18-entry per-mode
+  tables; `DAT_004c34f0 = {6,7,13}` identifies the row index as the chart type.
+  Extracted rows are tabulated in `LANES.md`.
 
 * **`.wav` sample obfuscation** — see `docs/WAV.md`. Found by noticing that
   bytes 8–15 were *identical across all 577 sample files*: a keystream over a
@@ -151,6 +182,9 @@ python3 tools/sss.py roundtrip '/path/to/game/data/*/*.sss'
 
 # 1b. sample regression test — must report all identical
 python3 tools/wav.py roundtrip '/path/to/game/data/*/*.wav'
+
+# 1c. render one song and check onset alignment against the chart's note times
+python3 tools/render_song.py /path/to/game/data/kamui/kamui_1n.sss -o /tmp/k.flac --report
 
 # 1c. re-extract the sample keystream straight from the disassembly
 #     (it is 128 immediate stores, so a byte-pattern search finds nothing)

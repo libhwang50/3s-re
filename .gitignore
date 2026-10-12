@@ -24,3 +24,8 @@ out/
 __pycache__/
 *.pyc
 .venv/
+
+# render output
+rendered/
+*.flac
+*.ogg

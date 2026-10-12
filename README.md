@@ -25,6 +25,10 @@ rather than proven are flagged inline.
 | Difficulty / chart-type naming | solved from the exe's own tables |
 | `.rnk` high-score files | partially characterised |
 | `.wav` sample obfuscation | solved, key recovered; 577/577 samples round-trip |
+| Note field semantics (velocity, pan, length) | solved — velocity and pan are dB |
+| Per-instrument volume | none exists; the per-lane table is a constant 127 |
+| Slot names and lane map | names read from the file; lane map extracted from the exe |
+| Song audio renderer | working; onset alignment verified at lag 0 ms |
 | `.3s` container | **not found on disk** (referenced by the loader) |
 
 ## Layout
@@ -34,9 +38,17 @@ FORMAT.md            the .sss container + EZFF payload spec
 docs/TAXONOMY.md     filename grammar, difficulty ladder, chart types
 docs/LANES.md        what the 64 track slots mean per chart type
 docs/WAV.md         the partial keystream over sample files
+docs/RENDER.md       reconstructing the song audio from a chart
 docs/REVERSE.md      how this was recovered: functions, addresses, method
 tools/sss.py         chart decoder / encoder / round-trip verifier (stdlib only)
 tools/wav.py         sample de-obfuscator (stdlib only)
+tools/render_song.py song renderer (needs numpy + soundfile)
+```
+
+`render_song.py` is the only part with dependencies:
+
+```sh
+uv venv && uv pip install numpy soundfile
 ```
 
 ## Using the tool
@@ -76,6 +88,18 @@ python3 tools/wav.py roundtrip 'path/to/sound/*.wav'
 
 Decoded output is ordinary PCM that `wave`/`ffmpeg` accept. See `docs/WAV.md`
 for why the chart keystream must *not* be reused here.
+
+### Rendering the song
+
+There is no BGM file. The song is a render of the chart:
+
+```sh
+python3 tools/render_song.py path/to/kamui_1n.sss -o kamui_1n.flac
+python3 tools/render_song.py path/to/songs --all -o rendered/
+```
+
+See `docs/RENDER.md` for what has to be right — in particular that velocity and
+pan are dB values, not linear ones.
 
 ## Not included
 
