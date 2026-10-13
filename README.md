@@ -31,6 +31,12 @@ rather than proven are flagged inline.
 | Song audio renderer | working; onset alignment verified at lag 0 ms |
 | `.3s` container | **not found on disk** (referenced by the loader) |
 
+The EZ2AC half of this work lives in a sibling repository, `ez2ac-re`: the Endless
+Circulation container codec, the `.ez` / `.ezi` formats, and a converter that
+turns a `.sss` into an EZ2AC `.ez` + `.ezi` pair. A `.sss` is literally an EZ2AC
+chart with those two halves concatenated — for Firestorm the 3S keysound table is
+byte-identical to EC's `.ezi`.
+
 ## Layout
 
 ```

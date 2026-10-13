@@ -34,6 +34,10 @@ reflects that, and in EZ2AC v6 the slots `1P Line 6`, `1P Line 7`, `2P Line 1`,
 `2P Line 2` were the effector buttons. Treat the names as telling you which
 *authored lane* a slot is, never which *button* it is.
 
+They are not merely similar to EZ2AC's: they are *the same strings* EZ2AC:
+Endless Circulation writes into its own `.ez` files. For Firestorm — the one
+song both games ship — the track names match slot for slot.
+
 ## Which slots each chart type uses
 
 Charts containing notes on that slot, across all 36 sample charts:
@@ -54,6 +58,12 @@ Charts containing notes on that slot, across all 36 sample charts:
 Percussion mode is a clean `8,9,10` + `17,18,19`: three lanes per side, six
 total — which is exactly 3S's three percussion buttons per side. That those
 slots are named `Line 6`, `Line 7`, `Scratch` is the stale-naming point above.
+
+EC settles the slot-8 question outright. In `streetmix1p-firestorm.ez` EC puts
+the scratch lane's notes on slot 10 and leaves slot 8 empty; in
+`firestorm_1n.sss` 3S puts the same notes on slot 8 — same song, same keysound
+table, same note payloads byte-for-byte. 3S moved that lane. See
+`ez2ac-re/docs/SSS-VS-EZ2AC.md`.
 
 ## The lane map is in the binary after all
 

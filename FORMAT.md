@@ -249,6 +249,11 @@ parses it with `fscanf(f, "%s %d", name, &flag)` and then evaluates
 chart has `flag = 1` — always the `C#0` / index-1 entry, which in the newer
 songs is the `MR` bed sample (`2-<song>-mr.wav`).
 
+That column is not decorative in the format's place of origin. EZ2AC EC's
+`LoadEZI` acts on it: `flag == 1` passes a boolean through to `CreateSample`,
+and `flag == 2` makes it read a **second filename** from the next token. 3S
+inherited the syntax and dropped the behaviour.
+
 **Preserve the raw 6 payload bytes.** For type `2` the bytes after `volume` are
 meaningful: `kamui_3n.sss` has a volume event whose payload is
 `75 fb 12 00 01 00`, and rebuilding it as "volume then zeros" corrupts the
