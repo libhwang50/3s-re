@@ -1,15 +1,20 @@
 # Track slots: what the 64 lanes mean
 
 Every chart declares exactly 64 track slots (`num_tracks` is always 64), each
-with an `"EZTR"` header. Slot index is what carries meaning — but the slots are
-**also named in the file**, and those names are authoritative for what the
-authoring tool thought each slot was.
+with an `"EZTR"` header. Slot index is what carries meaning. Some charts also
+name their slots, and where a name is present it is authoritative for what the
+authoring tool thought that slot was — but **most charts name nothing at all**.
 
 ## Slot names, read straight out of the track headers
 
-Identical across all 36 sample charts:
+**Only the nine `firestorm_*` charts have names.** In all 27 other sample charts
+— every kamui, bleed and eraser chart — every track name field is empty: no
+`untitled`, no `Dummy`, no `(1P)Line N`, nothing. An earlier revision of this
+file claimed the names were identical across all 36 charts; that was read off
+the Firestorm set and is wrong. Slot *index* is the reliable key. Slot *name* is
+present only for the one song in this set that was ported from EZ2AC.
 
-| Slots | Name | Notes (all charts) |
+| Slots | Name (the nine Firestorm charts) | Notes (all 36 charts) |
 | ---: | --- | ---: |
 | 0 | `untitled` | 0 (carries only control events) |
 | 1, 2 | `Dummy`, `Dummy2` | 0 |
