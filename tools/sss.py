@@ -2,7 +2,7 @@
 """
 Sabin Sound Star : Renascence Burst  --  .sss chart container codec.
 
-See ../FORMAT.md for the full specification; this file is the reference
+See docs/3s/FORMAT.md for the full specification; this file is the reference
 implementation of it.
 
 Container = [text header: instrument/sample table, CRLF-terminated lines]

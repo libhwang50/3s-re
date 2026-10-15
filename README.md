@@ -1,8 +1,9 @@
 > **Superseded.** Everything in this repository — the `.sss` and `.wav` format
 > documentation, the taxonomy and lane maps, the codec, and the renderer — has
-> been merged into **`../ez2ac-re`**, where it sits alongside the EZ2AC
+> been merged into [`ez2ac-re`](https://github.com/libhwang50/ez2ac-re), where it sits alongside the EZ2AC
 > (Endless Circulation and FINAL EX) writeups that it kept having to restate.
-> The merged repository is `/home/hwang/Projects/ez2ac-re`: the 3S writeups are
+> The merged repository is [`libhwang50/ez2ac-re`](https://github.com/libhwang50/ez2ac-re)
+> (locally `/home/hwang/Projects/ez2ac-re`): the 3S writeups are
 > under `docs/3s/`, the tools under `tools/`, and this repository's full git
 > history is reachable there through a merge commit.
 >
@@ -41,7 +42,7 @@ rather than proven are flagged inline.
 | Song audio renderer | working; onset alignment verified at lag 0 ms |
 | `.3s` container | **not found on disk** (referenced by the loader) |
 
-The EZ2AC half of this work lives in a sibling repository, `ez2ac-re`: the Endless
+The EZ2AC half of this work lives in a sibling repository, [`ez2ac-re`](https://github.com/libhwang50/ez2ac-re): the Endless
 Circulation container codec, the `.ez` / `.ezi` formats, and a converter that
 turns a `.sss` into an EZ2AC `.ez` + `.ezi` pair. A `.sss` is literally an EZ2AC
 chart with those two halves concatenated — for Firestorm the 3S keysound table is
@@ -50,12 +51,12 @@ byte-identical to EC's `.ezi`.
 ## Layout
 
 ```
-FORMAT.md            the .sss container + EZFF payload spec
-docs/TAXONOMY.md     filename grammar, difficulty ladder, chart types
-docs/LANES.md        what the 64 track slots mean per chart type
-docs/WAV.md         the partial keystream over sample files
-docs/RENDER.md       reconstructing the song audio from a chart
-docs/REVERSE.md      how this was recovered: functions, addresses, method
+docs/3s/FORMAT.md    the .sss container + EZFF payload spec
+docs/3s/TAXONOMY.md  filename grammar, difficulty ladder, chart types
+docs/3s/LANES.md     what the 64 track slots mean per chart type
+docs/3s/WAV.md       the partial keystream over sample files
+docs/3s/RENDER.md    reconstructing the song audio from a chart
+docs/3s/REVERSE.md   how this was recovered: functions, addresses, method
 tools/sss.py         chart decoder / encoder / round-trip verifier (stdlib only)
 tools/wav.py         sample de-obfuscator (stdlib only)
 tools/render_song.py song renderer (needs numpy + soundfile)
@@ -102,7 +103,7 @@ python3 tools/wav.py decode  path/to/1-kick-02.wav -o kick.wav
 python3 tools/wav.py roundtrip 'path/to/sound/*.wav'
 ```
 
-Decoded output is ordinary PCM that `wave`/`ffmpeg` accept. See `docs/WAV.md`
+Decoded output is ordinary PCM that `wave`/`ffmpeg` accept. See `docs/3s/WAV.md`
 for why the chart keystream must *not* be reused here.
 
 ### Rendering the song
@@ -114,7 +115,7 @@ python3 tools/render_song.py path/to/kamui_1n.sss -o kamui_1n.flac
 python3 tools/render_song.py path/to/songs --all -o rendered/
 ```
 
-See `docs/RENDER.md` for what has to be right — in particular that velocity and
+See `docs/3s/RENDER.md` for what has to be right — in particular that velocity and
 pan are dB values, not linear ones.
 
 ## Not included

@@ -43,7 +43,7 @@ The key lives as immediate operands in the decryptor at `0x00444ce0` in
 
 This is obfuscation, not encryption. Sample (`.wav`) files use a *separate*
 128-byte keystream, applied to only their first 256 bytes; it is recovered in
-`docs/WAV.md`. The two keys are related — the sample key equals the chart key
+`docs/3s/WAV.md`. The two keys are related — the sample key equals the chart key
 rotated left by 96 in 121 of 128 positions — but they are not interchangeable.
 
 ---
@@ -151,7 +151,7 @@ Then `dataSize` bytes of notes, then the next `"EZTR"`. In all 36 charts
 (the footer tail is empty).
 
 Track slot *index* is what carries meaning; names are never used. See
-`docs/LANES.md`.
+`docs/3s/LANES.md`.
 
 ---
 
@@ -201,7 +201,7 @@ never overruns the next note on the same slot (98,129 shorter, 333 exactly
 equal, 3 longer). That looks like a sustain, but it cannot gate audio:
 Firestorm's 118.6 s ambience bed is triggered by a single note whose `length`
 is 6, which would cut it to 35 ms. So keysounds play once through, and
-`length` must feed judgement or visuals instead. See `docs/LANES.md`.
+`length` must feed judgement or visuals instead. See `docs/3s/LANES.md`.
 
 ### Velocity and pan are dB, not linear
 
@@ -278,7 +278,7 @@ hand-authored events that have no `raw`.
   decoder should read rather than assume them.
 * `name1`, `name2`, track names and the `0x04` byte are all zero in shipped
   content. Difficulty is **not** stored anywhere in the file; see
-  `docs/TAXONOMY.md`.
+  `docs/3s/TAXONOMY.md`.
 
 ---
 
@@ -301,4 +301,4 @@ EZFF payload to a temporary file, and `FUN_004468b0` parses that.
 0x24-byte note structure.
 
 No `.3s` file exists anywhere in the shipped file listing, but the loader tries
-that extension first — see `docs/TAXONOMY.md`.
+that extension first — see `docs/3s/TAXONOMY.md`.
