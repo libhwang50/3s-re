@@ -2,8 +2,7 @@
 > documentation, the taxonomy and lane maps, the codec, and the renderer — has
 > been merged into [`ez2ac-re`](https://github.com/libhwang50/ez2ac-re), where it sits alongside the EZ2AC
 > (Endless Circulation and FINAL EX) writeups that it kept having to restate.
-> The merged repository is [`libhwang50/ez2ac-re`](https://github.com/libhwang50/ez2ac-re)
-> (locally `/home/hwang/Projects/ez2ac-re`): the 3S writeups are
+> The merged repository is [`libhwang50/ez2ac-re`](https://github.com/libhwang50/ez2ac-re): the 3S writeups are
 > under `docs/3s/`, the tools under `tools/`, and this repository's full git
 > history is reachable there through a merge commit.
 >
